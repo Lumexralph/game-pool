@@ -16,22 +16,26 @@ type Client struct {
 	Pool       *Pool           `json:"-"`
 	mu         sync.Mutex
 	Name       string `json:"name"`
-	player     bool
+	Player     bool `json:"player"`
 	TotalScore int8 `json:"totalScore"`
 	lowerBound uint8
 	upperBound uint8
 }
 
-// to help viewing the client in I/O stream
-// implement the Stringer interface
+// String method to help viewing the client in I/O stream,
+// and implement the Stringer interface for formatting client.
 func (c *Client) String() string {
 	return fmt.Sprintf("{ name: %q, id: %q, TotalScore: %d }", c.Name, c.ID, c.TotalScore)
 }
 
+// Read method will continually read from the connection stream to the pool Ping channel and
+// handle when a client connection stream is closed.
 func (c *Client) Read() {
 	defer func() {
 		c.Pool.Unregister <- c
-		c.Conn.Close()
+		if err := c.Conn.Close(); err != nil {
+			log.Println("client: error closing connection")
+		}
 	}()
 
 	for {
@@ -48,7 +52,8 @@ func (c *Client) Read() {
 	}
 }
 
+// GenerateClientID is an utility function to generate identifiers for a client connection
 func GenerateClientID() string {
-	uuid := strings.Replace(uuid.New().String(), "-", "", -1)
-	return uuid
+	id := strings.Replace(uuid.New().String(), "-", "", -1)
+	return id
 }

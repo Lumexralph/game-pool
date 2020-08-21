@@ -7,6 +7,7 @@ type Body struct {
 	Input2     uint8  `json:"input2"`
 	PlayerMode string `json:"playerMode"`
 	ScoreBoard `json:"scoreboard"`
+	Winner     *Client
 }
 
 type Message struct {

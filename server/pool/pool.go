@@ -2,6 +2,7 @@ package pool
 
 import (
 	"fmt"
+	"log"
 	"sort"
 )
 
@@ -28,9 +29,8 @@ func NewPool() *Pool {
 	}
 }
 
-//TODO: Remove all theses globals, better still encpauslate them into
+//TODO: Remove all theses globals, better still encapsulate them into
 // logical space.
-// var clientsPlay = make(map[string]*ClientPlay)
 var rs RankingSystem
 
 func (p *Pool) Start() {
@@ -44,31 +44,37 @@ func (p *Pool) Start() {
 			// Inform all clients
 			for _, client := range p.Clients {
 				client.mu.Lock()
-				client.Conn.WriteJSON(Message{Type: "game-info", Info: "New User Joined..."})
+				if err := client.Conn.WriteJSON(Message{Type: "game-info", Info: "New User Joined..."}); err != nil {
+					log.Println("pool: could not send JSON data to client")
+				}
 				client.mu.Unlock()
 			}
-
 			p.Clients[newClient.ID] = newClient
+
 			// Give a response to the client alone
 			newClient.mu.Lock()
-			newClient.Conn.WriteJSON(Message{Type: "game-info", Body: Body{ClientID: newClient.ID}, Info: "Welcome!"})
+			if err := newClient.Conn.WriteJSON(Message{Type: "game-info", Body: Body{ClientID: newClient.ID}, Info: "Welcome!"}); err != nil {
+				log.Println("pool: could not send JSON data to client")
+			}
 			newClient.mu.Unlock()
 
-			fmt.Println("Size of Connection Pool: ", len(p.Clients))
+			log.Println("Size of Connection Pool: ", len(p.Clients))
 			break
 		case client := <-p.Unregister:
 			delete(p.Clients, client.ID)
-			fmt.Println("Size of Connection Pool: ", len(p.Clients))
+			log.Println("Size of Connection Pool: ", len(p.Clients))
 			for _, client := range p.Clients {
 				client.mu.Lock()
-				client.Conn.WriteJSON(Message{Type: "game-info", Info: "User Disconnected..."})
+				if err := client.Conn.WriteJSON(Message{Type: "game-info", Info: "User Disconnected..."}); err != nil {
+					log.Println("pool: could not send JSON data to client")
+				}
 				client.mu.Unlock()
 			}
 			break
 		case message := <-p.Ping:
 			// update the client information
 			if message.ClientID == "" {
-				fmt.Println("client message missing clientID")
+				log.Println("client: message missing clientID")
 				break
 			}
 			client := p.Clients[message.ClientID]
@@ -77,15 +83,18 @@ func (p *Pool) Start() {
 			}
 			// when user wants to play
 			if message.PlayerMode == "play" {
-				client.player = true
+				client.Player = true
 
 				if p.inSession { // if game is in session add to waiting room
 					p.WaitingRoom[client.ID] = client
-					fmt.Printf("game: %d players in waiting room\n", len(p.WaitingRoom))
+					log.Printf("game: %d players in waiting room\n", len(p.WaitingRoom))
+					if err := client.Conn.WriteJSON(Message{Type: "player-wait", Info: "you can play when next game begins!"}); err != nil {
+						log.Println("pool: could not send JSON data to client")
+					}
 				} else {
 					// add the client to the playing room
 					p.PlayerRoom[client.ID] = client
-					fmt.Printf("game: %d players in game room\n", len(p.PlayerRoom))
+					log.Printf("game: %d players in game room\n", len(p.PlayerRoom))
 				}
 			}
 			// for each round play
@@ -98,20 +107,11 @@ func (p *Pool) Start() {
 
 				client.lowerBound = roundInputs[0]
 				client.upperBound = roundInputs[1]
-
-				// store the round plays of each player in-memory
-				// clientPlay := clientsPlay[message.ClientID]
-				// clientPlay.plays = append(clientPlay.plays, [2]uint8{message.Input1, message.Input2})
-
-				// // plug the ranking system here, it needs the client and their play
-				// // fmt.Printf("generated number: %d\n", rs.generateRandomNumber())
-				// fmt.Printf("roundPlay: user %q just played \n, user play history: +%v\n", message.ClientID, clientPlay)
 				break
 			}
-			fmt.Println("Message received from a player: ", message)
 			break
 		case message := <-p.Broadcast:
-			fmt.Println("Sending message to all clients in Pool")
+			log.Println("Sending message to all clients in Pool")
 			for _, client := range p.Clients {
 				if err := client.Conn.WriteJSON(message); err != nil {
 					fmt.Println(err)
@@ -122,16 +122,23 @@ func (p *Pool) Start() {
 
 		// if we have 2 or more players, start the game
 		if len(p.PlayerRoom) >= 2 && !p.inSession {
+			for _, client := range p.Clients {
+				if err := client.Conn.WriteJSON(Message{Type: "game-start", Info: "game started!"}); err != nil {
+					log.Println("pool: could not send JSON data to client")
+				}
+			}
 			p.StartGame()
 		}
 	}
 }
 
+// StartGame will change game to be in session and notify all users.
 func (p *Pool) StartGame() {
-	// switch the game pool to be in session
 	p.inSession = true
-	fmt.Println("game: Game is in session")
+	log.Println("game: Game is in session")
 	for _, client := range p.Clients {
-		client.Conn.WriteJSON(Message{Type: "game-info", Info: "game in session"})
+		if err := client.Conn.WriteJSON(Message{Type: "game-info", Info: "game in session"}); err != nil {
+			log.Println("pool: could not send JSON data to client")
+		}
 	}
 }
