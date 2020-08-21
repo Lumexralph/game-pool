@@ -5,7 +5,7 @@ server:
 	@echo starting the game server
 	bash -c "cd server && go build . && ./server"
 
-frontend: server
+frontend:
 	@echo starting the game frontend
 	bash -c "cd frontend && npm install && npm start"
 
