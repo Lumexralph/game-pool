@@ -7,7 +7,7 @@ server:
 
 frontend: server
 	@echo starting the game frontend
-	bash -c "cd frontend && npm start"
+	bash -c "cd frontend && npm install && npm start"
 
 # this is needed when you want a standalone frontend without starting the game server
 frontend-only:
