@@ -1,0 +1,22 @@
+version: '3.7'
+
+services:
+
+  game-engine:
+    container_name: game-engine
+    build:
+        context: server/.
+        dockerfile: Dockerfile
+    ports:
+     - 8080:8080
+
+  game-frontend:
+    container_name: game-frontend
+    build:
+      context: frontend/.
+      dockerfile: Dockerfile
+    ports:
+      - 3000:3000
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on: ["game-engine"]

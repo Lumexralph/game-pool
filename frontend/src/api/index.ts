@@ -1,7 +1,7 @@
 const socket = new WebSocket('ws://localhost:8080/ws');
 
 const connect = (cb: Function) => {
-  console.log("connecting...")
+  console.log("connecting...");
 
   socket.onopen = () => {
     cb({ data: "online" });
